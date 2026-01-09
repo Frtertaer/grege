@@ -83,6 +83,14 @@ curl -fsSL https://raw.githubusercontent.com/yeongpin/cursor-free-vip/main/scrip
 irm https://raw.githubusercontent.com/yeongpin/cursor-free-vip/main/scripts/install.ps1 | iex
 ```
 
+Short URL availability check:
+
+```powershell
+Invoke-WebRequest -Uri https://raw.githubusercontent.com/yeongpin/cursor-free-vip/main/scripts/install.ps1 -Method Head
+```
+
+`raw.githubusercontent.com` is the GitHub domain that serves raw file content. If this domain is blocked by your network or proxy, the command above and the installer download may fail.
+
 </details>
 
 <details>
