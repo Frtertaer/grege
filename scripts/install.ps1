@@ -40,6 +40,54 @@ function Write-Styled {
     }
 }
 
+function Write-GitHubAccessHint {
+    param (
+        [System.Exception]$Exception
+    )
+
+    $message = $Exception.Message
+    $innerMessage = if ($Exception.InnerException) { $Exception.InnerException.Message } else { "" }
+    $combined = "$message $innerMessage"
+
+    if ($combined -match "NameResolutionFailure|The remote name could not be resolved|Unable to connect|A connection attempt failed|timed out|407") {
+        Write-Styled "GitHub might be blocked or requires a proxy. Please check your network, proxy settings, or firewall." -Color $Theme.Warning -Prefix "Hint"
+    }
+}
+
+function Get-ResponseStatusCode {
+    param (
+        [System.Exception]$Exception
+    )
+
+    if ($Exception.Response -and $Exception.Response.StatusCode) {
+        return [int]$Exception.Response.StatusCode
+    }
+
+    return $null
+}
+
+function Test-DownloadUrl {
+    param (
+        [string]$Url
+    )
+
+    try {
+        $response = Invoke-WebRequest -Uri $Url -Method Head -UseBasicParsing -ErrorAction Stop
+        if ($response.StatusCode -ge 400) {
+            throw "Request failed with status code $($response.StatusCode)."
+        }
+    } catch {
+        $statusCode = Get-ResponseStatusCode -Exception $_.Exception
+        if ($statusCode -eq 404) {
+            throw "Download URL returned 404 (Not Found). Please check the release assets and try again."
+        }
+        if ($statusCode) {
+            throw "Download URL validation failed with status code $statusCode."
+        }
+        throw
+    }
+}
+
 # Get version number function
 function Get-LatestVersion {
     try {
@@ -50,6 +98,7 @@ function Get-LatestVersion {
         }
     } catch {
         Write-Styled $_.Exception.Message -Color $Theme.Error -Prefix "Error"
+        Write-GitHubAccessHint -Exception $_.Exception
         throw "Cannot get latest version"
     }
 }
@@ -124,6 +173,9 @@ function Install-CursorFreeVIP {
         }
         
         Write-Styled "No existing installation file found, starting download..." -Color $Theme.Primary -Prefix "Download"
+
+        Write-Styled "Validating download URL..." -Color $Theme.Primary -Prefix "Check"
+        Test-DownloadUrl -Url $asset.browser_download_url
         
         # Create WebClient and add progress event
         $webClient = New-Object System.Net.WebClient
@@ -197,6 +249,7 @@ function Install-CursorFreeVIP {
     }
     catch {
         Write-Styled $_.Exception.Message -Color $Theme.Error -Prefix "Error"
+        Write-GitHubAccessHint -Exception $_.Exception
         throw
     }
 }
